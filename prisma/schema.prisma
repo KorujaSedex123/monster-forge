@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db" 
+  // Nota: Para SQLite local, é mais fácil colocar o caminho direto aqui 
+  // em vez de usar env() se o .env estiver dando trabalho.
+  // Se preferir usar .env, certifique-se que o arquivo .env tem: DATABASE_URL="file:./dev.db"
+}
+
+model Monster {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  
+  system    String   @default("D&D 5e") // <--- ADICIONE ISSO (Identifica o RPG)
+  
+  type      String
+  cr        Float
+  size      String
+  alignment String
+  imageUrl  String?
+  data      String
+}

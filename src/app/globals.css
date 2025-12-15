@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* No Tailwind v4, as cores padrão viram variáveis CSS.
+  --color-stone-900 é o equivalente ao bg-stone-900 
+*/
+
+body {
+  background-color: var(--color-stone-900);
+  color: var(--color-stone-200);
+  font-family: var(--font-sans);
+}
+
+/* Scrollbar customizada para ficar bonito no painel lateral
+  (Opcional, mas dá um toque profissional)
+*/
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-stone-800);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-stone-600);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-stone-500);
+}
+
+@layer components {
+  .input-field {
+    @apply w-full bg-stone-800 border border-stone-600 rounded p-2 text-white focus:ring-2 focus:ring-red-500 outline-none transition;
+  }
+  .label-text {
+    @apply block text-xs font-bold text-stone-400 mb-1;
+  }
+}
