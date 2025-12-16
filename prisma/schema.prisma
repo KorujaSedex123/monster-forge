@@ -1,27 +1,91 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db" 
-  // Nota: Para SQLite local, é mais fácil colocar o caminho direto aqui 
-  // em vez de usar env() se o .env estiver dando trabalho.
-  // Se preferir usar .env, certifique-se que o arquivo .env tem: DATABASE_URL="file:./dev.db"
+  provider = "sqlite" // Provavelmente é isso que você está usando
+  url      = "file:./dev.db"
 }
 
-model Monster {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  name      String
+// --- TABELA D&D 5E ---
+model MonsterDnD {
+  id          String   @id @default(cuid())
+  system      String   @default("dnd5e")
+  name        String
+  imageUrl    String?
   
-  system    String   @default("D&D 5e") // <--- ADICIONE ISSO (Identifica o RPG)
+  // Atributos
+  str         Int      @default(10)
+  dex         Int      @default(10)
+  con         Int      @default(10)
+  int         Int      @default(10)
+  wis         Int      @default(10)
+  cha         Int      @default(10)
+
+  // Combate & Info
+  ac              Int?
+  hp_avg          Int?
+  hp_formula      String?
+  speed           String?
+  cr              Float?
+  type            String?
+  alignment       String?
   
-  type      String
-  cr        Float
-  size      String
-  alignment String
-  imageUrl  String?
-  data      String
+  // Magia & Lenda
+  is_spellcaster  Boolean? @default(false)
+  is_legendary    Boolean? @default(false)
+  spell_ability   String?
+  caster_level    Int?
+  spell_list_text String?
+  
+  // Textos longos
+  lore            String?
+  tactics         String?
+
+  // Listas (Salvas como JSON String)
+  traits            String? 
+  actions           String? 
+  legendary_actions String? 
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- TABELA CALL OF CTHULHU ---
+model MonsterCoC {
+  id          String   @id @default(cuid())
+  system      String   @default("coc")
+  name        String
+  description String?
+  imageUrl    String?
+
+  // Atributos (0-100)
+  str         Int      @default(50)
+  con         Int      @default(50)
+  siz         Int      @default(50)
+  dex         Int      @default(50)
+  app         Int      @default(50)
+  int         Int      @default(50)
+  pow         Int      @default(50)
+  edu         Int      @default(50)
+
+  // Derivados
+  hp          Int?
+  mp          Int?
+  move        Int?
+  build       Int?
+  db          String?
+  san_loss    String?
+  armor       String?
+
+  // Listas (Salvas como JSON String)
+  attacks         String?
+  skills          String?
+  special_powers  String?
+  spells          String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

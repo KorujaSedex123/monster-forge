@@ -1,0 +1,22 @@
+export const COC_RANDOM_CONCEPTS = [
+    "Um relojoeiro que substituiu seus órgãos por mecanismos de latão.",
+    "Uma criatura feita de tinta preta que vive nas sombras de uma biblioteca.",
+    "Um cultista que serve a Hastur e usa uma máscara de porcelana quebrada.",
+    "Uma entidade que vive nos espelhos e troca de lugar com quem a encara.",
+    "Um peixe abissal que evoluiu pernas e caminha na neblina de Londres.",
+    "Um médico da peste que na verdade é um enxame de baratas na roupa.",
+    "O espírito de um faroleiro que cega quem olha para sua lanterna.",
+    "Um shoggoth menor tentando imitar a forma de um cachorro.",
+    "Uma pintura a óleo que sangra e muda de posição quando ninguém vê.",
+    "Um gangster zumbi reanimado por soro de Herbert West.",
+    "Uma cor que caiu do espaço e infectou a água de um poço.",
+    "Um gramofone que toca as vozes dos mortos e enlouquece quem ouve.",
+    "Um avatar de Nyarlathotep disfarçado de vendedor de antiguidades.",
+    "Uma estátua de gárgula que se move apenas quando chove.",
+    "Um professor universitário que leu o livro errado e agora tem tentáculos na boca.",
+    "Um ghoul que trabalha como coveiro e rouba anéis dos mortos.",
+    "Uma entidade gasosa que se alimenta do medo de crianças.",
+    "Um detetive particular que morreu há 10 anos, mas não sabe disso.",
+    "Uma planta carnívora trazida de uma expedição na Amazônia que sussurra segredos.",
+    "Um violinista cuja música abre portais para a corte de Azathoth."
+];
