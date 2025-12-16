@@ -27,6 +27,7 @@ export default function DndEditorLayout({ initialData, monsterId }: Props) {
     cr: 1,
     traits: [], actions: [], legendary_actions: [],
     is_legendary: false, is_spellcaster: false, spell_ability: "int", caster_level: 1, spell_list_text: "",
+    has_resistance: false,
   };
 
   const methods = useForm<MonsterData>({

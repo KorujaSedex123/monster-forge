@@ -22,9 +22,21 @@ export type MonsterData = {
     str: number; dex: number; con: number; int: number; wis: number; cha: number;
     cr: number;
 
+    tactics?: string;
+
     imageScale: number; // Zoom
     imageX: number;     // Posição Horizontal
     imageY: number;     // Posição Vertical
+
+
+// Defesas e Sentidos (campos para o Foundry)
+  damage_vulnerabilities?: string;
+  damage_resistances?: string;
+  damage_immunities?: string;
+  condition_immunities?: string;
+  senses?: string;
+  languages?: string;
+
 
     show_lore: boolean;        // Exibir história?
     lore_on_new_page: boolean; // Jogar história para página 2?
