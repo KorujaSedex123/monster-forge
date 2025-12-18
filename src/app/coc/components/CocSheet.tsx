@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useEffect } from "react"; // <--- Adicione useEffect
+import { useRef, useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -7,29 +7,26 @@ import {
   Download, Fingerprint, Printer, Disc, Save, FileJson, Box, Shield 
 } from "lucide-react";
 import { CocMonsterData } from "../types";
+import { convertCocToFoundry } from "../cocAdapter";
+import { toast } from "sonner";
 
 export default function CocSheet() {
   const { watch } = useFormContext<CocMonsterData>();
   const data = watch();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Estados de controle
   const [isPrinterFriendly, setIsPrinterFriendly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  
-  // --- CORREÇÃO DO ERRO DE HIDRATAÇÃO ---
-  // Inicializa com um valor estático (ex: "000") para servidor e cliente serem iguais no início
-  const [caseFileId, setCaseFileId] = useState("000");
+  const [caseId, setCaseId] = useState("000");
 
-  useEffect(() => {
-    // Gera o número aleatório apenas no cliente
-    setCaseFileId(Math.floor(Math.random() * 1000).toString().padStart(3, '0'));
-  }, []);
-  // ---------------------------------------
+  // Evita erro de hidratação no ID aleatório
+  useEffect(() => setCaseId(Math.floor(Math.random() * 1000).toString().padStart(3, '0')), []);
 
   if (!data) return <div className="text-white p-4">Carregando Dossiê...</div>;
 
-  // --- 1. GERAR PDF ---
+  // --- EXPORTAÇÃO PDF ---
   const handleDownloadPDF = async () => {
     if (!containerRef.current) return;
     setIsDownloading(true);
@@ -46,16 +43,15 @@ export default function CocSheet() {
         pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`${data.name || "Dossie_Confidencial"}.pdf`);
     } catch (e) {
-        console.error(e);
-        alert("Erro ao gerar PDF");
+        toast.error("Erro ao gerar PDF");
     } finally {
         setIsDownloading(false);
     }
   };
 
-  // --- 2. GERAR TOKEN ---
+  // --- TOKEN ---
   const handleDownloadToken = () => {
-    if (!data.imageUrl) return alert("Adicione uma foto ao arquivo para gerar o token.");
+    if (!data.imageUrl) return toast.warning("Adicione uma foto para gerar o token.");
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -67,19 +63,10 @@ export default function CocSheet() {
     img.src = data.imageUrl;
     img.onload = () => {
         ctx.clearRect(0, 0, size, size);
-        ctx.beginPath();
-        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
+        ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
         const scale = Math.max(size / img.width, size / img.height);
-        const x = (size / 2) - (img.width / 2) * scale;
-        const y = (size / 2) - (img.height / 2) * scale;
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        ctx.beginPath();
-        ctx.arc(size / 2, size / 2, (size / 2) - 10, 0, Math.PI * 2);
-        ctx.lineWidth = 20;
-        ctx.strokeStyle = "#4a5568"; 
-        ctx.stroke();
+        ctx.drawImage(img, (size/2)-(img.width/2)*scale, (size/2)-(img.height/2)*scale, img.width*scale, img.height*scale);
+        ctx.beginPath(); ctx.arc(size / 2, size / 2, (size/2)-10, 0, Math.PI * 2); ctx.lineWidth = 20; ctx.strokeStyle = "#4a5568"; ctx.stroke();
         const link = document.createElement("a");
         link.download = `Token-${data.name || "Unknown"}.png`;
         link.href = canvas.toDataURL("image/png");
@@ -87,126 +74,99 @@ export default function CocSheet() {
     };
   };
 
-  // --- 3. EXPORTAR ---
+  // --- EXPORTAÇÃO JSON / FOUNDRY ---
   const handleExportJSON = (isVTT = false) => {
-    const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+    let dataToExport = data;
+    let fileName = `${data.name || "Coc_Entity"}.json`;
+
+    if (isVTT) {
+        dataToExport = convertCocToFoundry(data) as any;
+        fileName = `fvtt-Actor-${data.name?.replace(/\s+/g, "_") || "Entity"}.json`;
+    }
+
+    const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(JSON.stringify(dataToExport, null, 2))}`;
     const link = document.createElement("a");
     link.href = jsonString;
-    link.download = `${data.name || "CallOfCthulhu_Data"}${isVTT ? "_VTT" : ""}.json`;
+    link.download = fileName;
     link.click();
   };
 
+  // --- SALVAR BANCO ---
   const handleSaveToDb = async () => {
       setIsSaving(true);
       try {
         const payload = { ...data, system: 'coc' };
-        const response = await fetch('/api/monsters', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
-        });
-
-        if (response.ok) alert("Dossiê arquivado no sistema.");
-        else throw new Error("Falha ao arquivar.");
-
-      } catch (error) {
-          console.error(error);
-          alert("Erro de conexão com o arquivo.");
-      } finally {
-          setIsSaving(false);
-      }
+        const res = await fetch('/api/monsters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (res.ok) toast.success("Dossiê arquivado.");
+        else throw new Error("Falha");
+      } catch (error) { toast.error("Erro ao salvar."); } 
+      finally { setIsSaving(false); }
   };
 
-  // --- ESTILOS ---
+  // --- ESTILOS VISUAIS ---
   const paperColor = isPrinterFriendly ? "white" : "#f0f0e0";
   const stampColor = isPrinterFriendly ? "black" : "#991b1b"; 
   const stampBorder = isPrinterFriendly ? "2px solid black" : "4px solid #991b1b";
-  const photoStampBorder = isPrinterFriendly ? "2px solid black" : "2px solid #991b1b";
-  const fontColor = "black";
 
   return (
     <div className="w-1/2 bg-stone-950 flex flex-col h-full border-l border-stone-800">
-      
-      {/* TOOLBAR */}
       <div className="p-4 bg-stone-900 border-b border-stone-800 flex items-center justify-between shrink-0">
-        <span className="text-stone-400 font-mono text-sm uppercase tracking-widest flex gap-2 items-center">
-            <Fingerprint size={16} className="text-emerald-600"/> Arquivo #7E
-        </span>
+        <span className="text-stone-400 font-mono text-sm uppercase tracking-widest flex gap-2 items-center"><Fingerprint size={16} className="text-emerald-600"/> Arquivo #7E</span>
         <div className="flex gap-2">
-            <button onClick={() => setIsPrinterFriendly(!isPrinterFriendly)} className={`flex items-center gap-2 text-xs px-3 py-1 rounded transition font-bold ${isPrinterFriendly ? "bg-white text-black hover:bg-gray-200" : "bg-stone-700 hover:bg-stone-600 text-stone-300"}`} title="Modo Impressão"><Printer size={14} /> {isPrinterFriendly ? "Tinta" : "Cor"}</button>
+            <button onClick={() => setIsPrinterFriendly(!isPrinterFriendly)} className={`btn-tool ${isPrinterFriendly ? "bg-white text-black" : "bg-stone-700 text-stone-300"}`} title="Modo Impressão"><Printer size={14} /></button>
             <div className="w-px h-6 bg-stone-700 mx-1"></div>
-            <button onClick={handleDownloadToken} className="flex items-center gap-2 text-xs bg-emerald-800 hover:bg-emerald-700 text-white px-3 py-1 rounded transition font-bold"><Disc size={14} /> Token</button>
-            <button onClick={handleSaveToDb} disabled={isSaving} className="flex items-center gap-2 text-xs bg-blue-900 hover:bg-blue-800 disabled:bg-stone-700 text-white px-3 py-1 rounded transition font-bold">{isSaving ? "..." : <><Save size={14} /> Salvar</>}</button>
-            <button onClick={() => handleExportJSON(false)} className="flex items-center gap-2 text-xs bg-purple-900 hover:bg-purple-800 text-white px-3 py-1 rounded transition font-bold"><FileJson size={14} /> JSON</button>
-            <button onClick={() => handleExportJSON(true)} className="flex items-center gap-2 text-xs bg-orange-800 hover:bg-orange-700 text-white px-3 py-1 rounded transition font-bold" title="Exportar dados"><Box size={14} /> VTT</button>
-            <button onClick={handleDownloadPDF} disabled={isDownloading} className="flex items-center gap-2 text-xs bg-red-900 hover:bg-red-800 disabled:bg-stone-700 text-white px-3 py-1 rounded transition font-bold">{isDownloading ? "..." : <><Download size={14} /> PDF</>}</button>
+            <button onClick={handleDownloadToken} className="btn-tool bg-emerald-800 hover:bg-emerald-700 text-white"><Disc size={14} /></button>
+            <button onClick={handleSaveToDb} disabled={isSaving} className="btn-tool bg-blue-900 hover:bg-blue-800 text-white"><Save size={14} /></button>
+            <button onClick={() => handleExportJSON(false)} className="btn-tool bg-purple-900 hover:bg-purple-800 text-white"><FileJson size={14} /></button>
+            <button onClick={() => handleExportJSON(true)} className="btn-tool bg-orange-800 hover:bg-orange-700 text-white"><Box size={14} /></button>
+            <button onClick={handleDownloadPDF} disabled={isDownloading} className="btn-tool bg-red-900 hover:bg-red-800 text-white"><Download size={14} /></button>
         </div>
       </div>
 
-      {/* ÁREA DO PAPEL */}
       <div className="flex-1 p-8 overflow-y-auto bg-stone-900/50 flex justify-center custom-scrollbar">
         <div ref={containerRef} className="w-min h-fit relative">
-            <div 
-                className="font-mono w-[800px] min-h-[1000px] p-10 shadow-2xl relative transition-colors duration-300"
-                style={{ backgroundColor: paperColor, color: fontColor }}
-            >
+            <div className="font-mono w-[800px] min-h-[1000px] p-10 shadow-2xl relative transition-colors duration-300" style={{ backgroundColor: paperColor, color: "black" }}>
                 
-                {/* --- HEADER --- */}
+                {/* Header com Foto Flex */}
                 <div className="flex justify-between items-end border-b-2 border-black pb-6 mb-8 relative">
                     <div className="flex-1 pr-6 pt-10">
                         <h1 className="text-4xl font-bold uppercase tracking-tighter leading-none mb-2">{data.name || "DESCONHECIDO"}</h1>
-                        <p className="italic text-sm text-stone-600 leading-relaxed text-justify">{data.description || "Nenhuma descrição disponível nos arquivos."}</p>
+                        <p className="italic text-sm text-stone-600 leading-relaxed text-justify">{data.description || "Nenhuma descrição disponível."}</p>
                     </div>
-
                     <div className="w-40 flex flex-col items-end shrink-0 relative">
                         {data.imageUrl ? (
                             <div className={`w-36 p-2 shadow-lg border transform transition-transform origin-bottom-right ${isPrinterFriendly ? 'rotate-0 border-black bg-white shadow-none' : 'rotate-2 border-stone-300 bg-white'}`}>
                                 {!isPrinterFriendly && <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-4 bg-yellow-100/50 rotate-1 shadow-sm z-10 backdrop-blur-[1px]"></div>}
                                 <div className="w-full h-32 bg-stone-900 overflow-hidden mb-2 relative border border-stone-200">
                                     <img src={data.imageUrl} className={`w-full h-full object-cover ${isPrinterFriendly ? 'grayscale contrast-125' : 'sepia-[.2]'}`} />
-                                    <div className="absolute top-2 left-2 p-1 font-bold text-sm uppercase rotate-[-15deg] opacity-80 mask-grunge border-2 z-20 pointer-events-none" style={{ color: stampColor, borderColor: stampColor, border: photoStampBorder }}>
-                                        CONFIDENCIAL
-                                    </div>
+                                    <div className="absolute top-2 left-2 p-1 font-bold text-sm uppercase rotate-[-15deg] opacity-80 mask-grunge border-2 z-20 pointer-events-none" style={{ color: stampColor, borderColor: stampColor, border: isPrinterFriendly ? "2px solid black" : "2px solid #991b1b" }}>CONFIDENCIAL</div>
                                 </div>
-                                <div className="text-center font-typewriter text-[10px] text-stone-600 uppercase tracking-widest border-t border-stone-200 pt-1">
-                                    Fig. 1: Evidência
-                                </div>
+                                <div className="text-center font-typewriter text-[10px] text-stone-600 uppercase tracking-widest border-t border-stone-200 pt-1">Fig. 1: Evidência</div>
                             </div>
                         ) : (
-                            <div className="p-2 font-bold text-xl uppercase rotate-[-15deg] opacity-70 mask-grunge border-4 mt-8" style={{ color: stampColor, borderColor: stampColor, border: stampBorder }}>
-                                CONFIDENCIAL
-                            </div>
+                            <div className="p-2 font-bold text-xl uppercase rotate-[-15deg] opacity-70 mask-grunge border-4 mt-8" style={{ color: stampColor, borderColor: stampColor, border: stampBorder }}>CONFIDENCIAL</div>
                         )}
                     </div>
                 </div>
 
-                {/* Grid de Atributos */}
+                {/* Grid Atributos */}
                 <div className="grid grid-cols-8 gap-2 mb-6 text-center text-sm">
-                    {[
-                        { l: "STR", v: data.str }, { l: "CON", v: data.con }, { l: "SIZ", v: data.siz }, { l: "DEX", v: data.dex },
-                        { l: "APP", v: data.app }, { l: "INT", v: data.int }, { l: "POW", v: data.pow }, { l: "EDU", v: data.edu }
-                    ].map((attr) => (
-                        <div key={attr.l} className="border border-black p-1 bg-white/50 flex flex-col justify-between h-16">
-                            <div className="text-[10px] font-bold">{attr.l}</div>
-                            <div className="font-bold text-xl">{attr.v}</div>
-                            <div className="flex justify-center gap-1 text-[8px] text-stone-500 border-t border-black/20 pt-1">
-                                <span>{Math.floor(attr.v / 2)}</span>/<span>{Math.floor(attr.v / 5)}</span>
-                            </div>
-                        </div>
+                    {[{l:"STR",v:data.str},{l:"CON",v:data.con},{l:"SIZ",v:data.siz},{l:"DEX",v:data.dex},{l:"APP",v:data.app},{l:"INT",v:data.int},{l:"POW",v:data.pow},{l:"EDU",v:data.edu}].map((a)=>(
+                        <div key={a.l} className="border border-black p-1 bg-white/50 flex flex-col justify-between h-16"><div className="text-[10px] font-bold">{a.l}</div><div className="font-bold text-xl">{a.v}</div><div className="flex justify-center gap-1 text-[8px] text-stone-500 border-t border-black/20 pt-1"><span>{Math.floor(a.v/2)}</span>/<span>{Math.floor(a.v/5)}</span></div></div>
                     ))}
                 </div>
 
-                {/* Status Derivados */}
+                {/* Status */}
                 <div className="grid grid-cols-2 gap-8 mb-6 bg-black/5 p-4 border border-black/20">
-                    <div className="space-y-1">
-                        <div className="flex justify-between border-b border-stone-400 border-dotted"><span>HP (Pontos de Vida):</span> <b>{data.hp}</b></div>
-                        <div className="flex justify-between border-b border-stone-400 border-dotted"><span>MP (Pontos de Magia):</span> <b>{data.mp}</b></div>
-                        <div className="flex justify-between border-b border-stone-400 border-dotted"><span>MOV (Movimento):</span> <b>{data.move}</b></div>
+                    <div className="space-y-1 text-sm border-r border-black/10 pr-4">
+                        <div className="flex justify-between border-b border-black/20 border-dotted"><span>HP:</span> <b>{data.hp}</b></div>
+                        <div className="flex justify-between border-b border-black/20 border-dotted"><span>MP:</span> <b>{data.mp}</b></div>
+                        <div className="flex justify-between border-b border-black/20 border-dotted"><span>MOV:</span> <b>{data.move}</b></div>
                     </div>
-                    <div className="space-y-1">
-                        <div className="flex justify-between border-b border-stone-400 border-dotted"><span>BUILD (Corpo):</span> <b>{data.build}</b></div>
-                        <div className="flex justify-between border-b border-stone-400 border-dotted"><span>DB (Bônus de Dano):</span> <b>{data.db}</b></div>
-                        <div className="flex justify-between border-b border-stone-400 border-dotted font-bold" style={{ color: isPrinterFriendly ? 'black' : '#991b1b' }}><span>Sanity Loss:</span> <b>{data.san_loss}</b></div>
+                    <div className="space-y-1 text-sm">
+                        <div className="flex justify-between border-b border-black/20 border-dotted"><span>BUILD:</span> <b>{data.build}</b></div>
+                        <div className="flex justify-between border-b border-black/20 border-dotted"><span>DB:</span> <b>{data.db}</b></div>
+                        <div className="flex justify-between border-b border-black/20 border-dotted font-bold" style={{ color: isPrinterFriendly ? 'black' : '#991b1b' }}><span>SAN LOSS:</span> <b>{data.san_loss}</b></div>
                     </div>
                 </div>
 
@@ -224,41 +184,14 @@ export default function CocSheet() {
                     </div>
                 </div>
 
-                {/* Perícias e Poderes */}
-                <div className="grid grid-cols-2 gap-8">
-                    <div>
-                        <h3 className="font-bold border-b border-black mb-2 uppercase">Perícias</h3>
-                        <ul className="text-sm list-disc pl-4 space-y-1">
-                            {data.skills?.map((s, i) => (
-                                <li key={i}>{s.name}: {s.value}%</li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div>
-                        <h3 className="font-bold border-b border-black mb-2 uppercase">Poderes Especiais</h3>
-                        <div className="space-y-3 text-sm">
-                            {data.special_powers?.map((p, i) => (
-                                <div key={i} className="bg-black/5 p-2 border-l-2 border-black">
-                                    <strong>{p.name}:</strong> <span className="text-stone-800">{p.desc}</span>
-                                </div>
-                            ))}
-                            {data.spells && (
-                                <div className="mt-4 pt-2 border-t border-stone-400 border-dotted">
-                                    <strong className="block mb-1">Grimório:</strong> 
-                                    <p className="italic text-xs leading-relaxed">{data.spells}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Rodapé com ID corrigido para evitar Hydration Error */}
-                <div className="absolute bottom-4 right-4 text-[10px] text-stone-500 font-sans">
-                    MONSTER FORGE - CASE FILE: {new Date().getFullYear()}-{caseFileId}
-                </div>
+                {/* Rodapé */}
+                <div className="absolute bottom-4 right-4 text-[10px] text-stone-500 font-sans">MONSTER FORGE - CASE FILE: {new Date().getFullYear()}-{caseId}</div>
             </div>
         </div>
       </div>
+      <style jsx>{`
+        .btn-tool { @apply flex items-center gap-2 text-xs px-3 py-1 rounded transition font-bold; }
+      `}</style>
     </div>
   );
 }
